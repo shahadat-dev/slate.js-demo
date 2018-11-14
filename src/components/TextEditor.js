@@ -15,7 +15,7 @@ import { BoldMark, ItalicMark, FormatToolbar } from './index'
 
 // Update the initial content to be pulled from Local Storage if it exists.
 const existingValue = JSON.parse(localStorage.getItem('content'))
-const initialValue = Value.fromJSON(
+let initialValue = Value.fromJSON(
   existingValue || {
     document: {
       nodes: [
@@ -85,7 +85,10 @@ function insertImage(editor, src, target) {
 
 class TextEditor extends Component {
   state = {
-    value: initialValue
+    value: initialValue,
+    saveButton: false,
+    blockLimit: 99999999,
+    fileSaved: false
   }
 
   // Store a reference to the `editor`.
@@ -95,11 +98,68 @@ class TextEditor extends Component {
 
   // On change, update the app's React state with the new editor value.
   onChange = ({ value }) => {
+    // Check number of blocks and allowed blocks
+    if (this.countBlocks() > this.state.blockLimit) {
+      this.setState({ saveButton: true })
+    } else {
+      this.setState({ saveButton: false })
+    }
+
+    this.setState({ value })
+  }
+
+  // Save Button Click
+  onClickSave = event => {
+    event.preventDefault()
+
+    const { editor } = this
+    const { value } = editor
+
     // Save the value to Local Storage.
     const content = JSON.stringify(value.toJSON())
     localStorage.setItem('content', content)
 
-    this.setState({ value })
+    // Update initialValue
+    initialValue = Value.fromJSON(JSON.parse(localStorage.getItem('content')))
+
+    this.setState({ value, fileSaved: true })
+
+    window.setTimeout(() => {
+      this.setState({ fileSaved: false })
+    }, 1000)
+  }
+
+  // Cancel Button Click
+  onClickCancel = event => {
+    event.preventDefault()
+    this.setState({ value: initialValue })
+  }
+
+  // On change, block limit
+  onChangeBlockLimit = event => {
+    event.preventDefault()
+
+    // Check number of blocks and allowed blocks
+    if (this.countBlocks() > event.target.value) {
+      this.setState({ saveButton: true, blockLimit: event.target.value })
+    } else {
+      this.setState({ saveButton: false, blockLimit: event.target.value })
+    }
+  }
+
+  // count blocks
+  countBlocks = () => {
+    const { editor } = this
+    const { value } = editor
+
+    const countBlocks = value.document.getBlocks().filter(block => {
+      if (block.type === 'paragraph') {
+        if (block.text === '') return false
+        else return block
+      } else return block
+    })
+
+    return countBlocks.size
   }
 
   // On Key Down
@@ -174,6 +234,7 @@ class TextEditor extends Component {
     }
   }
 
+  // Mark icons click action at toolbar
   onMarkClick = (event, type) => {
     event.preventDefault()
 
@@ -254,6 +315,12 @@ class TextEditor extends Component {
   render() {
     return (
       <Fragment>
+        <div>
+          <p>
+            <strong>{'Slate.js Demo'}</strong>
+            {this.state.fileSaved && <span>{' (File Saved!)'}</span>}
+          </p>
+        </div>
         <FormatToolbar>
           <button
             onPointerDown={event => this.onMarkClick(event, 'bold')}
@@ -299,6 +366,29 @@ class TextEditor extends Component {
             id="image-file"
             onChange={this.uploadImage}
           />
+
+          <select name="blockLimit" onChange={this.onChangeBlockLimit}>
+            <option value={1}>1</option>
+            <option value={2}>2</option>
+            <option value={3}>3</option>
+            <option value={5}>5</option>
+            <option value={10}>10</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+            <option value={100}>100</option>
+            <option selected={true} value={99999999}>
+              Unlimited
+            </option>
+          </select>
+
+          <button
+            disabled={this.state.saveButton}
+            onMouseDown={this.onClickSave}
+          >
+            Save
+          </button>
+
+          <button onMouseDown={this.onClickCancel}>Cancel</button>
         </FormatToolbar>
 
         <Editor
