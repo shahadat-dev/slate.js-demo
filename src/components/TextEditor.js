@@ -13,27 +13,30 @@ import { image } from 'react-icons-kit/feather/image'
 
 import { BoldMark, ItalicMark, FormatToolbar } from './index'
 
-// Create our initial value...
-const initialValue = Value.fromJSON({
-  document: {
-    nodes: [
-      {
-        object: 'block',
-        type: 'paragraph',
-        nodes: [
-          {
-            object: 'text',
-            leaves: [
-              {
-                text: 'A line of text in a paragraph.'
-              }
-            ]
-          }
-        ]
-      }
-    ]
+// Update the initial content to be pulled from Local Storage if it exists.
+const existingValue = JSON.parse(localStorage.getItem('content'))
+const initialValue = Value.fromJSON(
+  existingValue || {
+    document: {
+      nodes: [
+        {
+          object: 'block',
+          type: 'paragraph',
+          nodes: [
+            {
+              object: 'text',
+              leaves: [
+                {
+                  text: 'A line of text in a paragraph.'
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
   }
-})
+)
 
 // Schema
 const schema = {
@@ -92,6 +95,10 @@ class TextEditor extends Component {
 
   // On change, update the app's React state with the new editor value.
   onChange = ({ value }) => {
+    // Save the value to Local Storage.
+    const content = JSON.stringify(value.toJSON())
+    localStorage.setItem('content', content)
+
     this.setState({ value })
   }
 
