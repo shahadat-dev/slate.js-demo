@@ -1,7 +1,9 @@
 import React, { Component, Fragment } from 'react'
-import { Editor } from 'slate-react'
+import { Editor, getEventRange, getEventTransfer } from 'slate-react'
 import { Block, Value } from 'slate'
 import styled from 'react-emotion'
+import imageExtensions from 'image-extensions'
+import isUrl from 'is-url'
 
 import Icon from 'react-icons-kit'
 import { bold } from 'react-icons-kit/feather/bold'
@@ -61,6 +63,10 @@ const Image = styled('img')`
   box-shadow: ${props => (props.selected ? '0 0 0 2px blue;' : 'none')};
   margin: 5px;
 `
+
+function isImage(url) {
+  return !!imageExtensions.find(url.endsWith)
+}
 
 // Insert Image
 function insertImage(editor, src, target) {
@@ -163,22 +169,79 @@ class TextEditor extends Component {
 
   onMarkClick = (event, type) => {
     event.preventDefault()
-    // console.log(event, type)
+
     const { editor } = this
     const { value } = editor
     const change = editor.toggleMark(type)
 
-    console.log(this, editor, value, change)
-
     this.onChange(change)
   }
 
-  // Image
+  // Image Button Click
   onClickImage = event => {
     event.preventDefault()
     const src = window.prompt('Enter the URL of the image:')
     if (!src) return
     this.editor.command(insertImage, src)
+  }
+
+  // Image Upload Button Click
+  onClickImageUploadButton = event => {
+    event.preventDefault()
+    document.getElementById('image-file').click()
+  }
+
+  // Image Upload
+  uploadImage = event => {
+    event.preventDefault()
+
+    const file = event.target.files[0]
+
+    const reader = new FileReader()
+
+    const [mime] = file.type.split('/')
+    if (mime !== 'image') return
+    const target = getEventRange(event, this.editor)
+    reader.addEventListener('load', () => {
+      this.editor.command(insertImage, reader.result, target)
+    })
+
+    const src = reader.readAsDataURL(file)
+    if (!src) return
+    this.editor.command(insertImage, src)
+  }
+
+  //  On drop, insert the image wherever it is dropped.
+  onDropOrPaste = (event, editor, next) => {
+    const target = getEventRange(event, editor)
+    if (!target && event.type === 'drop') return next()
+
+    const transfer = getEventTransfer(event)
+    const { type, text, files } = transfer
+
+    if (type === 'files') {
+      for (const file of files) {
+        const reader = new FileReader()
+        const [mime] = file.type.split('/')
+        if (mime !== 'image') continue
+
+        reader.addEventListener('load', () => {
+          editor.command(insertImage, reader.result, target)
+        })
+
+        reader.readAsDataURL(file)
+      }
+      return
+    }
+
+    if (type === 'text') {
+      if (!isUrl(text)) return next()
+      if (!isImage(text)) return next()
+      editor.command(insertImage, text, target)
+      return
+    }
+
+    next()
   }
 
   render() {
@@ -218,6 +281,17 @@ class TextEditor extends Component {
           <button onMouseDown={this.onClickImage}>
             <Icon icon={image} />
           </button>
+
+          <button onMouseDown={this.onClickImageUploadButton}>
+            <Icon icon={image} />
+          </button>
+          <input
+            type="file"
+            name="image"
+            className="image-file"
+            id="image-file"
+            onChange={this.uploadImage}
+          />
         </FormatToolbar>
 
         <Editor
@@ -228,6 +302,8 @@ class TextEditor extends Component {
           onKeyDown={this.onKeyDown}
           renderMark={this.renderMark}
           renderNode={this.renderNode}
+          onDrop={this.onDropOrPaste}
+          onPaste={this.onDropOrPaste}
         />
       </Fragment>
     )
