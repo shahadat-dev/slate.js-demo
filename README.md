@@ -4,8 +4,6 @@ This is a demo project about [Slate](https://github.com/ianstormtaylor/slate) de
 
 ## Toolbar
 
-From left to right...
-
 #### Bold (ctrl + b)
 
 Make a text **bold** and vice-versa
@@ -20,27 +18,31 @@ Todo: indentation for `tab` key and revert for `shift + tab` key
 
 ##### Un-ordered List
 
-Make selected paragraphs into an un-ordered list.
+Make selected paragraphs into an unordered list.
 
 ##### Ordered List
 
 Make selected paragraphs into an ordered list.
 
-#### Image Upload from URL
+#### Image
 
-Clicking this icon will popup a window for a link. Copy a link from web and paste here. It will add the image inside the editor.
+_**Supports drag and drop**_
 
-#### Image upload from file browser
+##### Upload from URL
 
-Upload an image from your local drive to add into the editor.
+Clicking this icon will pop up a window for a link. Copy a link from a web and paste here. It will add the image inside the editor.
+
+##### Upload from the file browser
+
+Upload an image from your local drive to add to the editor.
 
 #### Block Limit
 
-By default it is unlimited. You can change it. It will affect the "save button" next to it. Save button will be disabled, if you enter more blocks at your editor than allowed number.
+By default it is unlimited. You can change it. It will affect the "save button" next to it. Save button will be disabled if you enter more blocks at your editor than allowed number.
 
 #### Save
 
-This will save your document at local storage. If you relaod your browser, your file should be unchanged, if you save before reloading.
+This will save your document at local storage. If you reload your browser, your file should be unchanged, if you save before reloading.
 
 #### Cancel
 
