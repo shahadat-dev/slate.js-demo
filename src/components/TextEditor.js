@@ -112,6 +112,9 @@ class TextEditor extends Component {
   onClickSave = event => {
     event.preventDefault()
 
+    // If save button is disabled, do not save
+    if (this.state.saveButton) return
+
     const { editor } = this
     const { value } = editor
 
