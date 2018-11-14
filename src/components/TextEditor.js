@@ -1,11 +1,13 @@
 import React, { Component, Fragment } from 'react'
 import { Editor } from 'slate-react'
-import { Value } from 'slate'
+import { Block, Value } from 'slate'
+import styled from 'react-emotion'
 
 import Icon from 'react-icons-kit'
 import { bold } from 'react-icons-kit/feather/bold'
 import { italic } from 'react-icons-kit/feather/italic'
 import { list } from 'react-icons-kit/feather/list'
+import { image } from 'react-icons-kit/feather/image'
 
 import { BoldMark, ItalicMark, FormatToolbar } from './index'
 
@@ -30,6 +32,47 @@ const initialValue = Value.fromJSON({
     ]
   }
 })
+
+// Schema
+const schema = {
+  document: {
+    last: { type: 'paragraph' },
+    normalize: (editor, { code, node, child }) => {
+      switch (code) {
+        case 'last_child_type_invalid': {
+          const paragraph = Block.create('paragraph')
+          return editor.insertNodeByKey(node.key, node.nodes.size, paragraph)
+        }
+      }
+    }
+  },
+  blocks: {
+    image: {
+      isVoid: true
+    }
+  }
+}
+
+// A styled image block component.
+const Image = styled('img')`
+  display: block;
+  max-width: 100%;
+  max-height: 20em;
+  box-shadow: ${props => (props.selected ? '0 0 0 2px blue;' : 'none')};
+  margin: 5px;
+`
+
+// Insert Image
+function insertImage(editor, src, target) {
+  if (target) {
+    editor.select(target)
+  }
+
+  editor.insertBlock({
+    type: 'image',
+    data: { src }
+  })
+}
 
 class TextEditor extends Component {
   state = {
@@ -72,7 +115,10 @@ class TextEditor extends Component {
     }
   }
 
+  // Render a Slate Mark.
   renderMark = (props, editor, next) => {
+    const { attributes, node, isFocused } = props
+
     switch (props.mark.type) {
       case 'bold':
         return <BoldMark {...props} />
@@ -82,20 +128,36 @@ class TextEditor extends Component {
 
       case 'ul':
         return (
-          <ul {...props.attributes}>
+          <ul {...attributes}>
             <li>{props.children}</li>
           </ul>
         )
 
       case 'ol':
         return (
-          <ol {...props.attributes}>
+          <ol {...attributes}>
             <li>{props.children}</li>
           </ol>
         )
 
       default:
         return next()
+    }
+  }
+
+  // Render a Slate node.
+  renderNode = (props, editor, next) => {
+    const { attributes, node, isFocused } = props
+
+    switch (node.type) {
+      case 'image': {
+        const src = node.data.get('src')
+        return <Image src={src} selected={isFocused} {...attributes} />
+      }
+
+      default: {
+        return next()
+      }
     }
   }
 
@@ -109,6 +171,14 @@ class TextEditor extends Component {
     console.log(this, editor, value, change)
 
     this.onChange(change)
+  }
+
+  // Image
+  onClickImage = event => {
+    event.preventDefault()
+    const src = window.prompt('Enter the URL of the image:')
+    if (!src) return
+    this.editor.command(insertImage, src)
   }
 
   render() {
@@ -144,14 +214,20 @@ class TextEditor extends Component {
             <Icon icon={list} />
             ol
           </button>
+
+          <button onMouseDown={this.onClickImage}>
+            <Icon icon={image} />
+          </button>
         </FormatToolbar>
 
         <Editor
           ref={this.ref}
           value={this.state.value}
+          schema={schema}
           onChange={this.onChange}
           onKeyDown={this.onKeyDown}
           renderMark={this.renderMark}
+          renderNode={this.renderNode}
         />
       </Fragment>
     )
