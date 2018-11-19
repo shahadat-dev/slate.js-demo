@@ -4,25 +4,17 @@ A demo project of creating a _rich text editor_ using [Slate.js](https://github.
 
 ## Toolbar
 
-### Bold (ctrl + b)
-
-Make a text **bold** and vice-versa
-
-### Italic (ctrl + i)
-
-_Make a text italic_
-
 ### List
 
-Todo: indentation for `tab` key and revert for `shift + tab` key
-
-#### Un-ordered List
-
-Make selected paragraphs into an unordered list.
+**Indentation for `tab` key and revert for `shift + tab` key**
 
 #### Ordered List
 
 Make selected paragraphs into an ordered list.
+
+#### Un-ordered List
+
+Make selected paragraphs into an unordered list.
 
 ### Image
 

@@ -1,42 +1,34 @@
 import React, { Component, Fragment } from 'react'
 import { Editor, getEventRange, getEventTransfer } from 'slate-react'
 import { Block, Value } from 'slate'
-import styled from 'react-emotion'
 import imageExtensions from 'image-extensions'
 import isUrl from 'is-url'
+import { isKeyHotkey } from 'is-hotkey'
+import { Button, Icon, Image } from './utils'
+import FormatToolbar from './FormatToolbar'
+import initialValueFromJSON from './value.json'
 
-import Icon from 'react-icons-kit'
-import { bold } from 'react-icons-kit/feather/bold'
-import { italic } from 'react-icons-kit/feather/italic'
-import { list } from 'react-icons-kit/feather/list'
-import { image } from 'react-icons-kit/feather/image'
+/**
+ * Define the default node type.
+ *
+ * @type {String}
+ */
 
-import { BoldMark, ItalicMark, FormatToolbar } from './index'
+const DEFAULT_NODE = 'paragraph'
+
+/**
+ * Define hotkey matchers.
+ *
+ * @type {Function}
+ */
+
+const isTabHotkey = isKeyHotkey('tab')
+const isShiftTabHotkey = isKeyHotkey('shift+tab')
 
 // Update the initial content to be pulled from Local Storage if it exists.
 const existingValue = JSON.parse(localStorage.getItem('content'))
-let initialValue = Value.fromJSON(
-  existingValue || {
-    document: {
-      nodes: [
-        {
-          object: 'block',
-          type: 'paragraph',
-          nodes: [
-            {
-              object: 'text',
-              leaves: [
-                {
-                  text: 'A line of text in a paragraph.'
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    }
-  }
-)
+
+let initialValue = Value.fromJSON(existingValue || initialValueFromJSON)
 
 // Schema
 const schema = {
@@ -58,20 +50,24 @@ const schema = {
   }
 }
 
-// A styled image block component.
-const Image = styled('img')`
-  display: block;
-  max-width: 100%;
-  max-height: 20em;
-  box-shadow: ${props => (props.selected ? '0 0 0 2px blue;' : 'none')};
-  margin: 5px;
-`
-
+/**
+ * Image extension check
+ *
+ * @param {String} url
+ * @return {Boolean}
+ */
 function isImage(url) {
   return !!imageExtensions.find(url.endsWith)
 }
 
-// Insert Image
+/**
+ * Insert an image into editor
+ *
+ * @param {Editor} editor
+ * @param {String} src
+ * @param {String} target
+ */
+
 function insertImage(editor, src, target) {
   if (target) {
     editor.select(target)
@@ -91,12 +87,34 @@ class TextEditor extends Component {
     fileSaved: false
   }
 
-  // Store a reference to the `editor`.
+  /**
+   * Store a reference to the `editor`.
+   *
+   * @param {Editor} editor
+   */
+
   ref = editor => {
     this.editor = editor
   }
 
-  // On change, update the app's React state with the new editor value.
+  /**
+   * Check if the any of the currently selected blocks are of `type`.
+   *
+   * @param {String} type
+   * @return {Boolean}
+   */
+
+  hasBlock = type => {
+    const { value } = this.state
+    return value.blocks.some(node => node.type == type)
+  }
+
+  /**
+   * On change, save the new `value`.
+   *
+   * @param {Editor} editor
+   */
+
   onChange = ({ value }) => {
     // Check number of blocks and allowed blocks
     if (this.countBlocks() > this.state.blockLimit) {
@@ -108,7 +126,12 @@ class TextEditor extends Component {
     this.setState({ value })
   }
 
-  // Save Button Click
+  /**
+   * When save button is clicked, save the current editor content.
+   *
+   * @param {Event} event
+   */
+
   onClickSave = event => {
     event.preventDefault()
 
@@ -132,13 +155,21 @@ class TextEditor extends Component {
     }, 1000)
   }
 
-  // Cancel Button Click
+  /**
+   * When cancel button is clicked, cancel current changes.
+   *
+   * @param {Event} event
+   */
   onClickCancel = event => {
     event.preventDefault()
     this.setState({ value: initialValue })
   }
 
-  // On change, block limit
+  /**
+   * Change block limit from dropdown.
+   *
+   * @param {Event} event
+   */
   onChangeBlockLimit = event => {
     event.preventDefault()
 
@@ -165,90 +196,74 @@ class TextEditor extends Component {
     return countBlocks.size
   }
 
-  // On Key Down
+  /**
+   * On key down, if it's a formatting command toggle a mark.
+   *
+   * @param {Event} event
+   * @param {Editor} editor
+   * @return {Change}
+   */
+
   onKeyDown = (event, editor, next) => {
-    // Return with no changes if the keypress is not 'Ctrl'
-    if (!event.ctrlKey) {
+    if (isTabHotkey(event)) {
+      const { value } = editor
+      const { document } = value
+
+      let arr = []
+      value.blocks.some(block => {
+        document.getClosest(block.key, parent => {
+          arr.push(parent.type)
+        })
+      })
+
+      if (arr[0]) {
+        editor.setBlocks('list-item').wrapBlock(arr[0])
+      } else {
+        editor.setBlocks('list-item').wrapBlock('bulleted-list')
+      }
+    } else if (isShiftTabHotkey(event)) {
+      editor
+        .setBlocks('list-item')
+        .unwrapBlock('bulleted-list')
+        .unwrapBlock('numbered-list')
+    } else {
       return next()
     }
 
     event.preventDefault()
-
-    switch (event.key) {
-      // When 'b' is pressed, add a 'bold' mark to the text
-      case 'b': {
-        editor.toggleMark('bold')
-        return true
-      }
-      // When 'i' is pressed, add a 'italic' mark to the text
-      case 'i': {
-        editor.toggleMark('italic')
-        return true
-      }
-      default: {
-        return next()
-      }
-    }
   }
 
-  // Render a Slate Mark.
-  renderMark = (props, editor, next) => {
-    const { attributes, node, isFocused } = props
+  /**
+   * Render a Slate node.
+   *
+   * @param {Object} props
+   * @return {Element}
+   */
 
-    switch (props.mark.type) {
-      case 'bold':
-        return <BoldMark {...props} />
+  renderNode = (props, editor, next) => {
+    const { attributes, children, node, isFocused } = props
 
-      case 'italic':
-        return <ItalicMark {...props} />
-
-      case 'ul':
-        return (
-          <ul {...attributes}>
-            <li>{props.children}</li>
-          </ul>
-        )
-
-      case 'ol':
-        return (
-          <ol {...attributes}>
-            <li>{props.children}</li>
-          </ol>
-        )
-
+    switch (node.type) {
+      case 'bulleted-list':
+        return <ul {...attributes}>{children}</ul>
+      case 'list-item':
+        return <li {...attributes}>{children}</li>
+      case 'numbered-list':
+        return <ol {...attributes}>{children}</ol>
+      case 'image': {
+        const src = node.data.get('src')
+        return <Image src={src} selected={isFocused} {...attributes} />
+      }
       default:
         return next()
     }
   }
 
-  // Render a Slate node.
-  renderNode = (props, editor, next) => {
-    const { attributes, node, isFocused } = props
-
-    switch (node.type) {
-      case 'image': {
-        const src = node.data.get('src')
-        return <Image src={src} selected={isFocused} {...attributes} />
-      }
-
-      default: {
-        return next()
-      }
-    }
-  }
-
-  // Mark icons click action at toolbar
-  onMarkClick = (event, type) => {
-    event.preventDefault()
-
-    const { editor } = this
-    const { value } = editor
-    const change = editor.toggleMark(type)
-
-    this.onChange(change)
-  }
-
-  // Image Button Click
+  /**
+   * When image button is clicked, save image from URL.
+   *
+   * @param {Event} event
+   */
   onClickImage = event => {
     event.preventDefault()
     const src = window.prompt('Enter the URL of the image:')
@@ -256,13 +271,21 @@ class TextEditor extends Component {
     this.editor.command(insertImage, src)
   }
 
-  // Image Upload Button Click
+  /**
+   * When image upload button is clicked, open an expoler to upload image
+   *
+   * @param {Event} event
+   */
   onClickImageUploadButton = event => {
     event.preventDefault()
     document.getElementById('image-file').click()
   }
 
-  // Image Upload
+  /**
+   * When image upload button is clicked, upload an image from machine's local storage.
+   *
+   * @param {Event} event
+   */
   uploadImage = event => {
     event.preventDefault()
 
@@ -282,7 +305,14 @@ class TextEditor extends Component {
     this.editor.command(insertImage, src)
   }
 
-  //  On drop, insert the image wherever it is dropped.
+  /**
+   * On drop, insert the image wherever it is dropped.
+   *
+   * @param {Event} event
+   * @param {Editor} editor
+   * @return {Change}
+   */
+
   onDropOrPaste = (event, editor, next) => {
     const target = getEventRange(event, editor)
     if (!target && event.type === 'drop') return next()
@@ -315,6 +345,86 @@ class TextEditor extends Component {
     next()
   }
 
+  /**
+   * Render a block-toggling toolbar button.
+   *
+   * @param {String} type
+   * @param {String} icon
+   * @return {Element}
+   */
+
+  renderBlockButton = (type, icon) => {
+    let isActive = this.hasBlock(type)
+
+    if (['numbered-list', 'bulleted-list'].includes(type)) {
+      const { value } = this.state
+      const parent = value.blocks.first()
+        ? value.document.getParent(value.blocks.first().key)
+        : null
+      isActive = this.hasBlock('list-item') && parent && parent.type === type
+    }
+
+    return (
+      <Button
+        active={isActive}
+        onMouseDown={event => this.onClickBlock(event, type)}
+      >
+        <Icon>{icon}</Icon>
+      </Button>
+    )
+  }
+
+  /**
+   * When a block button is clicked, toggle the block type.
+   *
+   * @param {Event} event
+   * @param {String} type
+   */
+
+  onClickBlock = (event, type) => {
+    event.preventDefault()
+
+    const { editor } = this
+    const { value } = editor
+    const { document } = value
+
+    // Handle everything but list buttons.
+    if (type != 'bulleted-list' && type != 'numbered-list') {
+      const isActive = this.hasBlock(type)
+      const isList = this.hasBlock('list-item')
+
+      if (isList) {
+        editor
+          .setBlocks(isActive ? DEFAULT_NODE : type)
+          .unwrapBlock('bulleted-list')
+          .unwrapBlock('numbered-list')
+      } else {
+        editor.setBlocks(isActive ? DEFAULT_NODE : type)
+      }
+    } else {
+      // Handle the extra wrapping required for list buttons.
+      const isList = this.hasBlock('list-item')
+      const isType = value.blocks.some(block => {
+        return !!document.getClosest(block.key, parent => parent.type == type)
+      })
+
+      if (isList && isType) {
+        editor
+          .setBlocks(DEFAULT_NODE)
+          .unwrapBlock('bulleted-list')
+          .unwrapBlock('numbered-list')
+      } else if (isList) {
+        editor
+          .unwrapBlock(
+            type == 'bulleted-list' ? 'numbered-list' : 'bulleted-list'
+          )
+          .wrapBlock(type)
+      } else {
+        editor.setBlocks('list-item').wrapBlock(type)
+      }
+    }
+  }
+
   render() {
     return (
       <Fragment>
@@ -325,43 +435,14 @@ class TextEditor extends Component {
           </p>
         </div>
         <FormatToolbar>
-          <button
-            onPointerDown={event => this.onMarkClick(event, 'bold')}
-            className="tooltip-icon-button"
-          >
-            <Icon icon={bold} />
-          </button>
-
-          <button
-            onPointerDown={event => this.onMarkClick(event, 'italic')}
-            className="tooltip-icon-button"
-          >
-            <Icon icon={italic} />
-          </button>
-
-          <button
-            onPointerDown={event => this.onMarkClick(event, 'ul')}
-            className="tooltip-icon-button"
-          >
-            <Icon icon={list} />
-            ul
-          </button>
-
-          <button
-            onPointerDown={event => this.onMarkClick(event, 'ol')}
-            className="tooltip-icon-button"
-          >
-            <Icon icon={list} />
-            ol
-          </button>
-
-          <button onMouseDown={this.onClickImage}>
-            <Icon icon={image} />
-          </button>
-
-          <button onMouseDown={this.onClickImageUploadButton}>
-            <Icon icon={image} />
-          </button>
+          {this.renderBlockButton('numbered-list', 'format_list_numbered')}
+          {this.renderBlockButton('bulleted-list', 'format_list_bulleted')}
+          <Button onMouseDown={this.onClickImage}>
+            <Icon>{'image'}</Icon>
+          </Button>
+          <Button onMouseDown={this.onClickImageUploadButton}>
+            <Icon>{'image'}</Icon>
+          </Button>
           <input
             type="file"
             name="image"
@@ -369,7 +450,7 @@ class TextEditor extends Component {
             id="image-file"
             onChange={this.uploadImage}
           />
-
+          &nbsp;
           <select name="blockLimit" onChange={this.onChangeBlockLimit}>
             <option value={1}>1</option>
             <option value={2}>2</option>
@@ -383,14 +464,12 @@ class TextEditor extends Component {
               Unlimited
             </option>
           </select>
-
           <button
             disabled={this.state.saveButton}
             onMouseDown={this.onClickSave}
           >
             Save
           </button>
-
           <button onMouseDown={this.onClickCancel}>Cancel</button>
         </FormatToolbar>
 
