@@ -209,23 +209,63 @@ class TextEditor extends Component {
       const { value } = editor
       const { document } = value
 
-      let arr = []
-      value.blocks.some(block => {
-        document.getClosest(block.key, parent => {
-          arr.push(parent.type)
-        })
-      })
+      const block = value.blocks.first()
+      const parent = value.blocks.first()
+        ? value.document.getParent(value.blocks.first().key)
+        : null
 
-      if (arr[0]) {
-        editor.setBlocks('list-item').wrapBlock(arr[0])
-      } else {
-        editor.setBlocks('list-item').wrapBlock('bulleted-list')
+      // If no previous sibling exists, return
+      const previousSibling = value.document.getPreviousSibling(block.key)
+      if (!previousSibling) return next()
+
+      // check whether it's already in 3rd level
+      const depth = value.document.getDepth(block.key)
+      if (depth > 3) return next()
+
+      // check descendants if any node is in 3rd level
+      const descendants = value.document.getBlocks()
+      let flag = false
+      descendants.map(block => {
+        if (value.document.getDepth(block.key) > 3) flag = true
+      })
+      if (flag) return next()
+
+      // If tabing as sibling list-item
+      if (
+        previousSibling.type === 'numbered-list' ||
+        previousSibling.type === 'bulleted-list'
+      ) {
+        // editor.wrapBlock('list-item')
+        let siblingParent = value.document.getParent(previousSibling.key)
+
+        // editor.insertBlock('list-item')
+
+        return next()
+      }
+
+      if (parent) {
+        editor.setBlocks('list-item').wrapBlock(parent.type)
       }
     } else if (isShiftTabHotkey(event)) {
-      editor
-        .setBlocks('list-item')
-        .unwrapBlock('bulleted-list')
-        .unwrapBlock('numbered-list')
+      const { value } = editor
+      const parent = value.blocks.first()
+        ? value.document.getParent(value.blocks.first().key)
+        : null
+
+      // console.log(parent, parent.type)
+      const isActive =
+        this.hasBlock('list-item') &&
+        parent &&
+        (parent.type === 'numbered-list' || parent.type === 'bulleted-list')
+
+      if (isActive) {
+        editor
+          .setBlocks('list-item')
+          .unwrapBlock('bulleted-list')
+          .unwrapBlock('numbered-list')
+      } else {
+        editor.setBlocks(DEFAULT_NODE)
+      }
     } else {
       return next()
     }
