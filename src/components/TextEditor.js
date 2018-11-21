@@ -1,6 +1,6 @@
 import React, { Component, Fragment } from 'react'
 import { Editor, getEventRange, getEventTransfer } from 'slate-react'
-import { Block, Value } from 'slate'
+import { Block, Value, Selection } from 'slate'
 import imageExtensions from 'image-extensions'
 import isUrl from 'is-url'
 import { isKeyHotkey } from 'is-hotkey'
@@ -205,58 +205,90 @@ class TextEditor extends Component {
    */
 
   onKeyDown = (event, editor, next) => {
+    // tab
     if (isTabHotkey(event)) {
       const { value } = editor
       const { document } = value
 
       const block = value.blocks.first()
       const parent = value.blocks.first()
-        ? value.document.getParent(value.blocks.first().key)
+        ? document.getParent(value.blocks.first().key)
         : null
 
       // If no previous sibling exists, return
-      const previousSibling = value.document.getPreviousSibling(block.key)
+      const previousSibling = document.getPreviousSibling(block.key)
       if (!previousSibling) return next()
 
       // check whether it's already in 3rd level
-      const depth = value.document.getDepth(block.key)
+      const depth = document.getDepth(block.key)
       if (depth > 3) return next()
 
-      // check descendants if any node is in 3rd level
-      const descendants = value.document.getBlocks()
+      //check selected blocks, if any node is in 3rd level
       let flag = false
-      descendants.map(block => {
-        if (value.document.getDepth(block.key) > 3) flag = true
+      value.blocks.map(block => {
+        let depth = document.getDepth(block.key)
+        if (depth > 3) flag = true
       })
       if (flag) return next()
 
-      // If tabing as sibling list-item
+      // check previos sibling
       if (
-        previousSibling.type === 'numbered-list' ||
-        previousSibling.type === 'bulleted-list'
+        previousSibling &&
+        (previousSibling.type === 'numbered-list' ||
+          previousSibling.type === 'bulleted-list')
       ) {
-        // editor.wrapBlock('list-item')
-        let siblingParent = value.document.getParent(previousSibling.key)
+        // todo
+        return next()
+      }
 
-        // editor.insertBlock('list-item')
-
+      // check next sibling
+      const nextSibling = document.getNextSibling(block.key)
+      if (
+        nextSibling &&
+        (nextSibling.type === 'numbered-list' ||
+          nextSibling.type === 'bulleted-list')
+      ) {
+        // todo
         return next()
       }
 
       if (parent) {
-        editor.setBlocks('list-item').wrapBlock(parent.type)
+        let type = !parent.type ? 'bulleted-list' : parent.type
+        editor.setBlocks('list-item').wrapBlock(type)
       }
-    } else if (isShiftTabHotkey(event)) {
+    }
+    // shift + tab
+    else if (isShiftTabHotkey(event)) {
       const { value } = editor
-      const parent = value.blocks.first()
-        ? value.document.getParent(value.blocks.first().key)
+      const { document } = value
+      const block = value.blocks.first()
+        ? document.getParent(value.blocks.first().key)
         : null
+      let parent = document.getParent(block.key)
 
-      // console.log(parent, parent.type)
+      // if multi level list items are selected for shift+tab, then return
+      const firstBlockDepth =
+        value.blocks.first() && document.getDepth(value.blocks.first().key)
+      let hasChildren = false
+      value.blocks.map(blok => {
+        let depth = document.getDepth(blok.key)
+        if (firstBlockDepth !== depth) hasChildren = true
+      })
+      if (hasChildren) return next()
+
+      // if first level list-items selected then, make paragraph
+      if (parent && typeof parent.type === 'undefined') {
+        editor
+          .setBlocks(DEFAULT_NODE)
+          .unwrapBlock('bulleted-list')
+          .unwrapBlock('numbered-list')
+        return next()
+      }
+
       const isActive =
         this.hasBlock('list-item') &&
-        parent &&
-        (parent.type === 'numbered-list' || parent.type === 'bulleted-list')
+        block &&
+        (block.type === 'numbered-list' || block.type === 'bulleted-list')
 
       if (isActive) {
         editor
@@ -264,7 +296,10 @@ class TextEditor extends Component {
           .unwrapBlock('bulleted-list')
           .unwrapBlock('numbered-list')
       } else {
-        editor.setBlocks(DEFAULT_NODE)
+        editor
+          .setBlocks(DEFAULT_NODE)
+          .unwrapBlock('bulleted-list')
+          .unwrapBlock('numbered-list')
       }
     } else {
       return next()
