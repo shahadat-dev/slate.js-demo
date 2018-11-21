@@ -491,9 +491,7 @@ class TextEditor extends Component {
       const firstBlock = value.blocks.first()
       const parent = document.getParent(firstBlock.key)
       const grandParent = document.getParent(parent.key)
-      console.log(parent.type, firstBlock.type, grandParent)
       if (grandParent && typeof grandParent.type !== 'undefined') {
-        console.log(grandParent.type)
         return
       }
 
