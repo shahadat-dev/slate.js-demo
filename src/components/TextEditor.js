@@ -477,6 +477,26 @@ class TextEditor extends Component {
         editor.setBlocks(isActive ? DEFAULT_NODE : type)
       }
     } else {
+      // if multi level list items are selected for shift+tab, then return
+      const firstBlockDepth =
+        value.blocks.first() && document.getDepth(value.blocks.first().key)
+      let hasChildren = false
+      value.blocks.map(blok => {
+        let depth = document.getDepth(blok.key)
+        if (firstBlockDepth !== depth) hasChildren = true
+      })
+      if (hasChildren) return
+
+      // check if parent is a list item
+      const firstBlock = value.blocks.first()
+      const parent = document.getParent(firstBlock.key)
+      const grandParent = document.getParent(parent.key)
+      console.log(parent.type, firstBlock.type, grandParent)
+      if (grandParent && typeof grandParent.type !== 'undefined') {
+        console.log(grandParent.type)
+        return
+      }
+
       // Handle the extra wrapping required for list buttons.
       const isList = this.hasBlock('list-item')
       const isType = value.blocks.some(block => {
